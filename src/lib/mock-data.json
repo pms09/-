@@ -1,0 +1,17 @@
+[
+  { "id": "seed-01", "dayOfWeek": 1, "hour": 8, "availableMachines": 4, "createdAt": "2026-09-01T08:05:00.000Z" },
+  { "id": "seed-02", "dayOfWeek": 1, "hour": 19, "availableMachines": 1, "createdAt": "2026-09-01T19:10:00.000Z" },
+  { "id": "seed-03", "dayOfWeek": 1, "hour": 22, "availableMachines": 0, "createdAt": "2026-09-01T22:15:00.000Z" },
+  { "id": "seed-04", "dayOfWeek": 2, "hour": 9, "availableMachines": 5, "createdAt": "2026-09-02T09:00:00.000Z" },
+  { "id": "seed-05", "dayOfWeek": 2, "hour": 20, "availableMachines": 2, "createdAt": "2026-09-02T20:30:00.000Z" },
+  { "id": "seed-06", "dayOfWeek": 3, "hour": 7, "availableMachines": 6, "createdAt": "2026-09-03T07:20:00.000Z" },
+  { "id": "seed-07", "dayOfWeek": 3, "hour": 18, "availableMachines": 3, "createdAt": "2026-09-03T18:45:00.000Z" },
+  { "id": "seed-08", "dayOfWeek": 3, "hour": 21, "availableMachines": 1, "createdAt": "2026-09-03T21:05:00.000Z" },
+  { "id": "seed-09", "dayOfWeek": 4, "hour": 19, "availableMachines": 0, "createdAt": "2026-09-04T19:00:00.000Z" },
+  { "id": "seed-10", "dayOfWeek": 4, "hour": 23, "availableMachines": 4, "createdAt": "2026-09-04T23:10:00.000Z" },
+  { "id": "seed-11", "dayOfWeek": 5, "hour": 17, "availableMachines": 2, "createdAt": "2026-09-05T17:30:00.000Z" },
+  { "id": "seed-12", "dayOfWeek": 6, "hour": 11, "availableMachines": 5, "createdAt": "2026-09-06T11:00:00.000Z" },
+  { "id": "seed-13", "dayOfWeek": 6, "hour": 14, "availableMachines": 6, "createdAt": "2026-09-06T14:20:00.000Z" },
+  { "id": "seed-14", "dayOfWeek": 0, "hour": 10, "availableMachines": 3, "createdAt": "2026-09-07T10:15:00.000Z" },
+  { "id": "seed-15", "dayOfWeek": 0, "hour": 20, "availableMachines": 1, "createdAt": "2026-09-07T20:40:00.000Z" }
+]

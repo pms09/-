@@ -1,69 +1,106 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+// 홈 / 입력 화면
+//   - 요일·시간대 선택
+//   - 자연어로 상황을 묻는 입력창
+//   - '추천받기' 버튼 → AI 추천 결과 화면으로 이동
+//
+// 뼈대 단계: 입력값을 sessionStorage에 담아 결과 화면으로 넘기기만 한다.
+// 실제 /api/recommend 호출은 다음 단계에서 결과 화면에 붙인다.
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { DAY_LABELS, DAY_OPTIONS, HOUR_OPTIONS, formatHour } from "@/lib/config";
+import type { DayOfWeek, RecommendationInput } from "@/lib/types";
+
+const STORAGE_KEY = "laundry:lastQuery";
+
+export default function HomePage() {
+  const router = useRouter();
+  const now = new Date();
+
+  const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(now.getDay() as DayOfWeek);
+  const [hour, setHour] = useState<number>(
+    HOUR_OPTIONS.includes(now.getHours()) ? now.getHours() : HOUR_OPTIONS[0],
+  );
+  const [question, setQuestion] = useState("");
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const payload: RecommendationInput = { dayOfWeek, hour, question: question.trim() };
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // sessionStorage 사용 불가 시 무시 (결과 화면이 기본값으로 동작)
+    }
+    router.push("/result");
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <section className="space-y-6">
+      <header className="space-y-1">
+        <h1 className="text-xl font-semibold">AI 빨래 도우미</h1>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          가고 싶은 요일·시간대를 고르고 상황을 편하게 적어 주세요. 학생들이 남긴
+          혼잡도 기록을 바탕으로 언제 가면 좋을지 추천해 드립니다.
+        </p>
+      </header>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium">요일</span>
+            <select
+              value={dayOfWeek}
+              onChange={(e) => setDayOfWeek(Number(e.target.value) as DayOfWeek)}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              {DAY_OPTIONS.map((day) => (
+                <option key={day} value={day}>
+                  {DAY_LABELS[day]}요일
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium">시간대</span>
+            <select
+              value={hour}
+              onChange={(e) => setHour(Number(e.target.value))}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              {HOUR_OPTIONS.map((h) => (
+                <option key={h} value={h}>
+                  {formatHour(h)}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium">상황 / 질문</span>
+          <textarea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            rows={4}
+            placeholder="예) 목요일 저녁에 이불 빨래를 하고 싶은데 언제 가면 덜 붐빌까요?"
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </label>
+
+        <button
+          type="submit"
+          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+        >
+          추천받기
+        </button>
+      </form>
+
+      <p className="text-xs text-zinc-500">
+        ※ 지금은 화면 뼈대만 있는 상태입니다. Gemini 연동은 다음 단계에서 추가됩니다.
+      </p>
+    </section>
   );
 }
