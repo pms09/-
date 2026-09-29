@@ -59,6 +59,8 @@ export interface RecommendationResult {
   suggestion: string;
   /** 추천 이유 */
   reason: string;
+  /** AI가 고른 추천 시각(0~23). 특정 시각을 고르지 못했으면 null */
+  recommendedHour: HourSlot | null;
   /** 응답을 생성한 모델 이름 */
   model: string;
 }

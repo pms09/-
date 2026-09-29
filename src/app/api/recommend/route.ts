@@ -4,7 +4,11 @@
 //
 // 흐름: 요청 검증 → 해당 요일 혼잡도 집계 → Gemini에 질문+데이터 전달 → 추천 문장 반환.
 // AI 호출은 이 서버 라우트 안에서만 일어나며, GEMINI_API_KEY 는 브라우저로 나가지 않는다.
-// 현재는 뼈대 상태: 키가 없으면 not-implemented, 있어도 Gemini 로직은 다음 단계에서 구현.
+//
+// 응답 상태:
+//   ok              추천 생성 성공
+//   not-implemented GEMINI_API_KEY 미설정 (501)
+//   error           입력 오류(400) 또는 Gemini 호출 실패(502)
 
 import { NextResponse } from "next/server";
 import { getDataStore } from "@/lib/data";
@@ -66,8 +70,10 @@ export async function POST(request: Request) {
     );
     return json({ status: "ok", result, congestion }, 200);
   } catch (err) {
+    // Gemini 호출/파싱 실패. 키 자체는 있으므로 not-implemented가 아니라 error로 구분한다.
     const message = err instanceof Error ? err.message : "unknown error";
-    return json({ status: "not-implemented", message }, 501);
+    console.error("[/api/recommend]", err);
+    return json({ status: "error", message }, 502);
   }
 }
 

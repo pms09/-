@@ -28,7 +28,14 @@ export function CongestionLegend() {
   );
 }
 
-export function CongestionBarChart({ cells }: { cells: CongestionCell[] }) {
+export function CongestionBarChart({
+  cells,
+  highlightHour = null,
+}: {
+  cells: CongestionCell[];
+  /** AI가 추천한 시각. 해당 막대를 강조 표시한다. */
+  highlightHour?: number | null;
+}) {
   return (
     <div className="flex items-end gap-1 overflow-x-auto rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
       {cells.map((cell) => {
@@ -36,6 +43,7 @@ export function CongestionBarChart({ cells }: { cells: CongestionCell[] }) {
           cell.averageAvailable === null
             ? 0.12
             : Math.max(0.08, cell.averageAvailable / TOTAL_MACHINES);
+        const highlighted = cell.hour === highlightHour;
         return (
           <div
             key={cell.hour}
@@ -46,13 +54,30 @@ export function CongestionBarChart({ cells }: { cells: CongestionCell[] }) {
                 : `${formatHour(cell.hour)} · 평균 여유 ${cell.averageAvailable.toFixed(1)}대 (표본 ${cell.sampleCount})`
             }
           >
+            <span className="text-[10px] leading-3 text-zinc-900 dark:text-zinc-100">
+              {highlighted ? "★" : " "}
+            </span>
             <div className="flex h-28 w-full items-end">
               <div
-                className={`w-full rounded-t ${LEVEL_META[cell.level].bar}`}
+                className={
+                  `w-full rounded-t ${LEVEL_META[cell.level].bar} ` +
+                  (highlighted
+                    ? "ring-2 ring-zinc-900 ring-offset-1 dark:ring-white dark:ring-offset-zinc-950"
+                    : "")
+                }
                 style={{ height: `${ratio * 100}%` }}
               />
             </div>
-            <span className="text-[10px] text-zinc-500">{cell.hour}</span>
+            <span
+              className={
+                "text-[10px] " +
+                (highlighted
+                  ? "font-bold text-zinc-900 dark:text-zinc-100"
+                  : "text-zinc-500")
+              }
+            >
+              {cell.hour}
+            </span>
           </div>
         );
       })}

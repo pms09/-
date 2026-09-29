@@ -5,8 +5,8 @@
 //   - 자연어로 상황을 묻는 입력창
 //   - '추천받기' 버튼 → AI 추천 결과 화면으로 이동
 //
-// 뼈대 단계: 입력값을 sessionStorage에 담아 결과 화면으로 넘기기만 한다.
-// 실제 /api/recommend 호출은 다음 단계에서 결과 화면에 붙인다.
+// 입력값은 sessionStorage에 담아 결과 화면으로 넘긴다.
+// 실제 /api/recommend 호출은 결과 화면에서 이루어진다.
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -99,7 +99,9 @@ export default function HomePage() {
       </form>
 
       <p className="text-xs text-zinc-500">
-        ※ 지금은 화면 뼈대만 있는 상태입니다. Gemini 연동은 다음 단계에서 추가됩니다.
+        ※ 학생들이 남긴 기록이 적은 시간대는 예측이 정확하지 않을 수 있어요.
+        <br />
+        현황 기록을 함께 남겨 주시면 추천이 더 정확해집니다.
       </p>
     </section>
   );

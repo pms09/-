@@ -45,7 +45,10 @@ http://localhost:3000 접속.
 | `GET /api/records`      | 전체 현황 기록 조회                              |
 | `POST /api/records`     | 새 현황 기록 추가                                |
 | `GET /api/congestion`   | `?day=` 요일의 시간대별 혼잡도 등급              |
-| `POST /api/recommend`   | 질문 + 혼잡도 → Gemini 추천 (연동은 다음 단계)   |
+| `POST /api/recommend`   | 질문 + 혼잡도 → Gemini 추천 문장                 |
+
+`POST /api/recommend` 응답 상태: `ok` / `not-implemented`(키 미설정, 501) /
+`error`(입력 오류 400 · Gemini 호출 실패 502).
 
 ## 폴더 구조 (핵심)
 
@@ -69,11 +72,11 @@ src/
     data.ts              데이터 접근 계층 (mock → Supabase 교체 지점)
     mock-data.json       시드 기록
     congestion.ts        평균 → 등급 계산
-    gemini.ts            Gemini 연동 (서버 전용, 뼈대)
+    gemini.ts            Gemini 연동 (서버 전용)
 ```
 
 ## 다음 단계
 
-1. `lib/gemini.ts` 에 실제 Gemini `generateContent` 호출 구현
-2. `/result` 화면에서 `/api/congestion` · `/api/recommend` 실제 호출
-3. `lib/data.ts` 에 `SupabaseLaundryStore` 추가 후 교체
+1. `lib/data.ts` 에 `SupabaseLaundryStore` 추가 후 mock 저장소와 교체
+2. 기록 화면에 최근 기록 목록 표시
+3. 배포 (Vercel 환경변수에 `GEMINI_API_KEY` 등록)
