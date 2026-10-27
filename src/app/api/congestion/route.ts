@@ -15,8 +15,13 @@ export async function GET(request: Request) {
     DAY_OPTIONS.includes(rawDay as DayOfWeek) ? rawDay : new Date().getDay()
   ) as DayOfWeek;
 
-  const records = await getDataStore().listRecords();
-  const cells = buildDayCongestion(records, dayOfWeek, HOUR_OPTIONS);
-
-  return NextResponse.json({ dayOfWeek, cells } satisfies CongestionResponse);
+  try {
+    const records = await getDataStore().listRecords();
+    const cells = buildDayCongestion(records, dayOfWeek, HOUR_OPTIONS);
+    return NextResponse.json({ dayOfWeek, cells } satisfies CongestionResponse);
+  } catch (err) {
+    console.error("[GET /api/congestion]", err);
+    const message = err instanceof Error ? err.message : "혼잡도 조회에 실패했습니다.";
+    return NextResponse.json({ error: message }, { status: 503 });
+  }
 }

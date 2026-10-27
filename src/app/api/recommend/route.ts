@@ -45,19 +45,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const records = await getDataStore().listRecords();
-  const congestion = buildDayCongestion(
-    records,
-    dayOfWeek as DayOfWeek,
-    HOUR_OPTIONS,
-  );
+  let congestion;
+  try {
+    const records = await getDataStore().listRecords();
+    congestion = buildDayCongestion(records, dayOfWeek as DayOfWeek, HOUR_OPTIONS);
+  } catch (err) {
+    // DB 조회 실패 — 혼잡도 데이터 없이는 추천을 만들 수 없다.
+    console.error("[/api/recommend] 혼잡도 조회 실패", err);
+    const message = err instanceof Error ? err.message : "혼잡도 조회에 실패했습니다.";
+    return json({ status: "error", message }, 503);
+  }
 
   if (!isGeminiConfigured()) {
     return json(
       {
         status: "not-implemented",
         message:
-          "GEMINI_API_KEY 가 설정되지 않았습니다. .env.local 에 키를 추가하고 다음 단계에서 연동하세요.",
+          "GEMINI_API_KEY 가 설정되지 않았습니다. 로컬은 .env.local, 배포 환경은 Vercel의 Settings → Environment Variables 에 키를 추가한 뒤 재배포하세요.",
       },
       501,
     );

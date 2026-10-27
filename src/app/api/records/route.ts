@@ -8,8 +8,14 @@ import { DAY_OPTIONS, HOUR_OPTIONS, TOTAL_MACHINES } from "@/lib/config";
 import type { DayOfWeek, NewLaundryRecord, RecordsResponse } from "@/lib/types";
 
 export async function GET() {
-  const records = await getDataStore().listRecords();
-  return NextResponse.json({ records } satisfies RecordsResponse);
+  try {
+    const records = await getDataStore().listRecords();
+    return NextResponse.json({ records } satisfies RecordsResponse);
+  } catch (err) {
+    console.error("[GET /api/records]", err);
+    const message = err instanceof Error ? err.message : "기록 조회에 실패했습니다.";
+    return NextResponse.json({ error: message }, { status: 503 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -39,11 +45,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const record = await getDataStore().addRecord({
-    dayOfWeek: dayOfWeek as DayOfWeek,
-    hour: hour as number,
-    availableMachines: availableMachines as number,
-  });
-
-  return NextResponse.json({ record }, { status: 201 });
+  try {
+    const record = await getDataStore().addRecord({
+      dayOfWeek: dayOfWeek as DayOfWeek,
+      hour: hour as number,
+      availableMachines: availableMachines as number,
+    });
+    return NextResponse.json({ record }, { status: 201 });
+  } catch (err) {
+    console.error("[POST /api/records]", err);
+    const message = err instanceof Error ? err.message : "기록 저장에 실패했습니다.";
+    return NextResponse.json({ error: message }, { status: 503 });
+  }
 }
