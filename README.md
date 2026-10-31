@@ -64,7 +64,7 @@ RLS가 켜져 있고 **읽기·추가만** 허용됩니다(수정·삭제 정책
 | 경로      | 화면          | 설명                                                     |
 | --------- | ------------- | -------------------------------------------------------- |
 | `/`       | 홈 / 입력     | 요일·시간대 선택 + 자연어 질문 + '추천받기'              |
-| `/result` | AI 추천 결과  | 시간대별 혼잡도 막대그래프 + AI 추천 말풍선              |
+| `/result` | AI 추천 결과  | 혼잡도 막대그래프 + AI 추천 말풍선 + 이어서 대화하기     |
 | `/record` | 현황 기록     | '지금 비어 있는 세탁기 수' 입력 + 저장                   |
 
 ## API 라우트
@@ -75,9 +75,14 @@ RLS가 켜져 있고 **읽기·추가만** 허용됩니다(수정·삭제 정책
 | `POST /api/records`     | 새 현황 기록 추가                                |
 | `GET /api/congestion`   | `?day=` 요일의 시간대별 혼잡도 등급              |
 | `POST /api/recommend`   | 질문 + 혼잡도 → Gemini 추천 문장                 |
+| `POST /api/chat`        | 대화 기록 + 혼잡도 → Gemini 후속 답변            |
 
-`POST /api/recommend` 응답 상태: `ok` / `not-implemented`(키 미설정, 501) /
-`error`(입력 오류 400 · Gemini 호출 실패 502).
+`POST /api/recommend` · `POST /api/chat` 응답 상태: `ok` /
+`not-implemented`(키 미설정, 501) / `error`(입력 오류 400 · Gemini 호출 실패
+502 · DB 오류 503).
+
+`POST /api/chat` 은 무료 등급(모델당 하루 20회) 보호를 위해 한 대화에서
+사용자 메시지를 최대 `MAX_CHAT_TURNS`(기본 5)회로 제한합니다.
 
 ## 폴더 구조 (핵심)
 
@@ -92,6 +97,7 @@ src/
       records/route.ts    기록 조회·추가
       congestion/route.ts 혼잡도 집계
       recommend/route.ts  AI 추천 (Gemini)
+      chat/route.ts       AI 대화 (Gemini)
   components/
     site-nav.tsx              네비게이션
     congestion-bar-chart.tsx  혼잡도 막대그래프

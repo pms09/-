@@ -1,5 +1,5 @@
 // 앱 전역에서 공유하는 도메인 타입 정의.
-// 데이터 저장소(현재 mock, 이후 Supabase)와 UI가 모두 이 타입에 의존한다.
+// 데이터 저장소(Supabase, 미설정 시 mock)와 UI가 모두 이 타입에 의존한다.
 
 /** 요일: 0=일요일 ~ 6=토요일 (JS `Date.getDay()` 기준) */
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;

@@ -2,7 +2,7 @@
 
 // 현황 기록 화면
 //   - '지금 비어 있는 세탁기 수' + 요일·시간대 입력
-//   - 저장 버튼 → POST /api/records (mock 저장소에 추가)
+//   - 저장 버튼 → POST /api/records (Supabase laundry_records 테이블에 저장)
 //
 // 데이터 접근 계층(lib/data.ts)이 실제로 동작하는지 확인하는 화면.
 
@@ -125,8 +125,8 @@ export default function RecordPage() {
       </form>
 
       <p className="text-xs text-zinc-500">
-        ※ 현재 기록은 mock 저장소(메모리)에 저장되어 서버 재시작 시 초기화됩니다. 다음
-        단계에서 Supabase로 교체됩니다.
+        ※ 남겨 주신 기록은 Supabase(Postgres) 데이터베이스에 영구 저장되어, 모든
+        사용자의 혼잡도 예측에 함께 반영됩니다.
       </p>
     </section>
   );
