@@ -1,0 +1,7 @@
+﻿2407 박민석 - 기숙사 세탁기 혼잡 예측 웹앱 (AI 빨래 도우미)
+
+1. 사이트 주소
+https://one-iota-62.vercel.app/
+
+2. GitHub 주소
+https://github.com/pms09/-

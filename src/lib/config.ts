@@ -40,11 +40,21 @@ export function formatHour(hour: number): string {
 }
 
 /**
- * 사용할 Gemini 모델 이름 (무료 gemini-flash 계열).
- * 필요하면 환경변수 GEMINI_MODEL 로 재정의.
- * 실제 API 호출은 다음 단계에서 서버 라우트에만 추가한다.
+ * 사용할 Gemini 모델 목록 (앞에서부터 차례로 시도).
+ *
+ * 무료 등급은 모델당 하루 20회 제한이 있고, 인기 있는 모델은 과부하(503)로
+ * 막히는 일도 잦다. 하나가 막혀도 시연이 끊기지 않도록 대체 모델을 둔다.
+ * 1순위는 환경변수 GEMINI_MODEL 로 바꿀 수 있다.
  */
-export const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-flash-latest";
+export const GEMINI_MODELS: string[] = [
+  ...(process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : []),
+  "gemini-3.5-flash",
+  "gemini-flash-latest",
+  "gemini-3.1-flash-lite",
+].filter((name, i, all) => all.indexOf(name) === i);
+
+/** 1순위 모델 이름 (오류 메시지 표기용) */
+export const GEMINI_MODEL = GEMINI_MODELS[0];
 
 /**
  * 한 대화에서 사용자가 보낼 수 있는 최대 메시지 수.

@@ -5,7 +5,13 @@
 //    (NEXT_PUBLIC_ 접두사를 붙이지 말 것.)
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { DAY_LABELS, GEMINI_MODEL, TOTAL_MACHINES, formatHour } from "./config";
+import {
+  DAY_LABELS,
+  GEMINI_MODEL,
+  GEMINI_MODELS,
+  TOTAL_MACHINES,
+  formatHour,
+} from "./config";
 import type {
   ChatMessage,
   CongestionCell,
@@ -82,7 +88,9 @@ function buildPrompt(
  * 서버가 알려 주는 retryDelay 를 그대로 사용자에게 보여 주는 편이 정확하다.
  */
 const RETRIABLE_CODES = new Set([500, 503]);
-const MAX_ATTEMPTS = 3;
+/** 같은 모델로는 가망이 없지만 다른 모델이면 될 수 있는 오류 */
+const FALLBACK_CODES = new Set([404, 429, 500, 503]);
+const MAX_ATTEMPTS = 2;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -135,23 +143,38 @@ function friendlyMessage(code: number | null, detail: string): string {
 /** 모델에 보낼 요청 한 건 (generateContent 인자) */
 type GenerateParams = Parameters<GoogleGenAI["models"]["generateContent"]>[0];
 
-/** 일시적 오류에 한해 지수 백오프로 재시도 */
+/** 실제로 응답을 만들어 낸 모델 이름과 본문 */
+interface GenerateOutcome {
+  text: string | undefined;
+  model: string;
+}
+
+/**
+ * 일시적 오류는 같은 모델로 재시도하고, 그래도 안 되면 다음 모델로 넘어간다.
+ * 모델 과부하(503)나 할당량 소진(429)으로 시연이 멈추는 것을 막기 위한 장치다.
+ */
 async function generateWithRetry(
   ai: GoogleGenAI,
-  params: GenerateParams,
-): Promise<string | undefined> {
+  buildParams: (model: string) => GenerateParams,
+): Promise<GenerateOutcome> {
   let lastError: unknown;
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      const response = await ai.models.generateContent(params);
-      return response.text;
-    } catch (err) {
-      lastError = err;
-      const code = extractErrorCode(err);
-      if (attempt === MAX_ATTEMPTS || !RETRIABLE_CODES.has(code ?? -1)) break;
-      await sleep(attempt * 1500); // 1.5초 → 3초
+  for (const model of GEMINI_MODELS) {
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const response = await ai.models.generateContent(buildParams(model));
+        return { text: response.text, model };
+      } catch (err) {
+        lastError = err;
+        const code = extractErrorCode(err);
+        if (attempt === MAX_ATTEMPTS || !RETRIABLE_CODES.has(code ?? -1)) break;
+        await sleep(attempt * 1500); // 1.5초 → 3초
+      }
     }
+
+    // 키·요청이 잘못된 경우는 모델을 바꿔도 소용없으므로 즉시 중단한다.
+    if (!FALLBACK_CODES.has(extractErrorCode(lastError) ?? -1)) break;
+    console.warn(`[gemini] ${model} 사용 불가 — 다음 모델로 전환합니다.`);
   }
 
   const detail = lastError instanceof Error ? lastError.message : String(lastError);
@@ -177,8 +200,8 @@ export async function requestRecommendation(
   input: RecommendationInput,
   congestion: CongestionCell[],
 ): Promise<RecommendationResult> {
-  const text = await generateWithRetry(createClient(), {
-    model: GEMINI_MODEL,
+  const { text, model } = await generateWithRetry(createClient(), (name) => ({
+    model: name,
     contents: buildPrompt(input, congestion),
     config: {
       systemInstruction: SYSTEM_INSTRUCTION,
@@ -205,9 +228,9 @@ export async function requestRecommendation(
         required: ["suggestion", "reason"],
       },
     },
-  });
+  }));
 
-  return parseResult(text);
+  return parseResult(text, model);
 }
 
 /**
@@ -222,7 +245,7 @@ export async function requestChatReply(
   messages: ChatMessage[],
   congestion: CongestionCell[],
   dayOfWeek: DayOfWeek,
-): Promise<string> {
+): Promise<{ reply: string; model: string }> {
   const context = [
     SYSTEM_INSTRUCTION,
     "",
@@ -234,8 +257,8 @@ export async function requestChatReply(
     "답변은 3문장 이내로 짧게 유지하고, 데이터에 없는 내용은 지어내지 마세요.",
   ].join("\n");
 
-  const text = await generateWithRetry(createClient(), {
-    model: GEMINI_MODEL,
+  const { text, model } = await generateWithRetry(createClient(), (name) => ({
+    model: name,
     contents: messages.map((m) => ({
       role: m.role,
       parts: [{ text: m.text }],
@@ -244,13 +267,13 @@ export async function requestChatReply(
       systemInstruction: context,
       temperature: 0.7,
     },
-  });
+  }));
 
   const reply = text?.trim();
   if (!reply) {
     throw new Error("Gemini 응답이 비어 있습니다.");
   }
-  return reply;
+  return { reply, model };
 }
 
 /** ```json ... ``` 코드펜스가 붙어 오는 경우를 대비해 벗겨낸다 */
@@ -269,7 +292,10 @@ function normalizeHour(value: unknown): number | null {
 }
 
 /** 모델 응답 텍스트를 RecommendationResult 로 파싱 */
-function parseResult(text: string | undefined): RecommendationResult {
+function parseResult(
+  text: string | undefined,
+  model: string,
+): RecommendationResult {
   const raw = text?.trim();
   if (!raw) {
     throw new Error("Gemini 응답이 비어 있습니다.");
@@ -287,7 +313,7 @@ function parseResult(text: string | undefined): RecommendationResult {
           suggestion: suggestion.trim(),
           reason: reason.trim(),
           recommendedHour: normalizeHour(recommendedHour),
-          model: GEMINI_MODEL,
+          model,
         };
       }
     }
@@ -306,6 +332,6 @@ function parseResult(text: string | undefined): RecommendationResult {
     suggestion: first,
     reason: rest.join(" ") || first,
     recommendedHour: null,
-    model: GEMINI_MODEL,
+    model,
   };
 }

@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { getDataStore } from "@/lib/data";
 import { buildDayCongestion } from "@/lib/congestion";
-import { DAY_OPTIONS, HOUR_OPTIONS, MAX_CHAT_TURNS, GEMINI_MODEL } from "@/lib/config";
+import { DAY_OPTIONS, HOUR_OPTIONS, MAX_CHAT_TURNS } from "@/lib/config";
 import { isGeminiConfigured, requestChatReply } from "@/lib/gemini";
 import type {
   ChatMessage,
@@ -94,12 +94,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const reply = await requestChatReply(
+    const { reply, model } = await requestChatReply(
       messages,
       congestion,
       dayOfWeek as DayOfWeek,
     );
-    return json({ status: "ok", reply, model: GEMINI_MODEL }, 200);
+    return json({ status: "ok", reply, model }, 200);
   } catch (err) {
     console.error("[/api/chat]", err);
     const message = err instanceof Error ? err.message : "unknown error";
