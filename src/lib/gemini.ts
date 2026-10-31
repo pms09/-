@@ -120,10 +120,13 @@ function friendlyMessage(code: number | null, detail: string): string {
       return "Gemini 모델이 혼잡합니다. 잠시 후 다시 시도해 주세요.";
     case 404:
       return `모델 '${GEMINI_MODEL}' 을(를) 사용할 수 없습니다. GEMINI_MODEL 환경변수를 확인해 주세요.`;
-    case 400:
     case 401:
     case 403:
       return "Gemini API 키가 올바르지 않거나 권한이 없습니다. GEMINI_API_KEY 를 확인해 주세요.";
+    case 400:
+      // 요청 자체가 잘못된 경우(지원하지 않는 설정 등). 키 문제와 구분해야
+      // 원인을 추적할 수 있으므로 서버가 준 설명을 그대로 보여 준다.
+      return `Gemini 요청이 거부되었습니다(400). ${detail}`;
     default:
       return `Gemini 호출에 실패했습니다: ${detail}`;
   }
@@ -240,9 +243,6 @@ export async function requestChatReply(
     config: {
       systemInstruction: context,
       temperature: 0.7,
-      // 확장 사고(thinking)를 끈다. 켜 두면 간단한 대화에도 90초 넘게 걸려
-      // 시연 중 응답이 오지 않는 것처럼 보인다.
-      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 
