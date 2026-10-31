@@ -49,8 +49,12 @@ export function formatHour(hour: number): string {
 export const GEMINI_MODELS: string[] = [
   ...(process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : []),
   "gemini-3.5-flash",
-  "gemini-flash-latest",
+  "gemini-3.6-flash",
+  "gemini-3-flash-preview",
+  "gemini-3.5-flash-lite",
   "gemini-3.1-flash-lite",
+  "gemini-flash-lite-latest",
+  "gemini-flash-latest",
 ].filter((name, i, all) => all.indexOf(name) === i);
 
 /** 1순위 모델 이름 (오류 메시지 표기용) */
