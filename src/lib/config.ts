@@ -45,3 +45,9 @@ export function formatHour(hour: number): string {
  * 실제 API 호출은 다음 단계에서 서버 라우트에만 추가한다.
  */
 export const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-flash-latest";
+
+/**
+ * 한 대화에서 사용자가 보낼 수 있는 최대 메시지 수.
+ * Gemini 무료 등급은 모델당 하루 20회라, 대화가 길어지면 금방 소진된다.
+ */
+export const MAX_CHAT_TURNS = 5;

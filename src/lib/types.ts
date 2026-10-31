@@ -71,6 +71,25 @@ export type RecommendationResponse =
   | { status: "not-implemented"; message: string }
   | { status: "error"; message: string };
 
+/** 대화 한 줄. role은 Gemini 규격을 그대로 따른다(model = AI). */
+export interface ChatMessage {
+  role: "user" | "model";
+  text: string;
+}
+
+/** `POST /api/chat` 요청 */
+export interface ChatRequest {
+  dayOfWeek: DayOfWeek;
+  /** 지금까지의 대화 전체. 마지막 항목은 반드시 role: "user" */
+  messages: ChatMessage[];
+}
+
+/** `POST /api/chat` 응답 */
+export type ChatResponse =
+  | { status: "ok"; reply: string; model: string }
+  | { status: "not-implemented"; message: string }
+  | { status: "error"; message: string };
+
 /** `GET /api/congestion` 응답 형태 */
 export interface CongestionResponse {
   dayOfWeek: DayOfWeek;

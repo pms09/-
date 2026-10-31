@@ -15,6 +15,7 @@ import {
   CongestionBarChart,
   CongestionLegend,
 } from "@/components/congestion-bar-chart";
+import { ChatPanel } from "@/components/chat-panel";
 import { DAY_LABELS, formatHour } from "@/lib/config";
 import type {
   CongestionResponse,
@@ -201,12 +202,10 @@ export default function ResultPage() {
 
         {recommendation.status === "ok" && (
           <>
-            <Bubble>
-              <p className="font-medium">{recommendation.data.suggestion}</p>
-              <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-                {recommendation.data.reason}
-              </p>
-            </Bubble>
+            <ChatPanel
+              dayOfWeek={query?.dayOfWeek ?? (new Date().getDay() as DayOfWeek)}
+              initialReply={`${recommendation.data.suggestion}\n\n${recommendation.data.reason}`}
+            />
             <p className="text-xs text-zinc-500">
               {recommendation.data.model} 응답 · 학생들이 남긴 기록을 바탕으로 한
               참고용 추천입니다.

@@ -7,8 +7,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DAY_LABELS, GEMINI_MODEL, TOTAL_MACHINES, formatHour } from "./config";
 import type {
+  ChatMessage,
   CongestionCell,
   CongestionLevelOrUnknown,
+  DayOfWeek,
   RecommendationInput,
   RecommendationResult,
 } from "./types";
@@ -127,44 +129,19 @@ function friendlyMessage(code: number | null, detail: string): string {
   }
 }
 
+/** 모델에 보낼 요청 한 건 (generateContent 인자) */
+type GenerateParams = Parameters<GoogleGenAI["models"]["generateContent"]>[0];
+
 /** 일시적 오류에 한해 지수 백오프로 재시도 */
 async function generateWithRetry(
   ai: GoogleGenAI,
-  prompt: string,
+  params: GenerateParams,
 ): Promise<string | undefined> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: prompt,
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          temperature: 0.7,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              recommendedHour: {
-                type: Type.INTEGER,
-                description:
-                  "추천하는 시각(0~23 정수). 특정 시각을 고르기 어려우면 생략하세요.",
-              },
-              suggestion: {
-                type: Type.STRING,
-                description: "언제 가면 좋을지 알려주는 1~2문장.",
-              },
-              reason: {
-                type: Type.STRING,
-                description:
-                  "그렇게 추천한 이유. 등급과 평균 여유 대수 같은 데이터 근거를 포함해 2~3문장.",
-              },
-            },
-            required: ["suggestion", "reason"],
-          },
-        },
-      });
+      const response = await ai.models.generateContent(params);
       return response.text;
     } catch (err) {
       lastError = err;
@@ -178,6 +155,15 @@ async function generateWithRetry(
   throw new Error(friendlyMessage(extractErrorCode(lastError), detail));
 }
 
+/** API 키를 확인하고 클라이언트를 만든다 */
+function createClient(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY 가 설정되지 않았습니다.");
+  }
+  return new GoogleGenAI({ apiKey });
+}
+
 /**
  * 사용자의 자연어 질문 + 혼잡도 데이터를 Gemini에 보내
  * "언제 가면 좋을지" 추천 문장과 이유를 받아온다.
@@ -188,15 +174,83 @@ export async function requestRecommendation(
   input: RecommendationInput,
   congestion: CongestionCell[],
 ): Promise<RecommendationResult> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY 가 설정되지 않았습니다.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-  const text = await generateWithRetry(ai, buildPrompt(input, congestion));
+  const text = await generateWithRetry(createClient(), {
+    model: GEMINI_MODEL,
+    contents: buildPrompt(input, congestion),
+    config: {
+      systemInstruction: SYSTEM_INSTRUCTION,
+      temperature: 0.7,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          recommendedHour: {
+            type: Type.INTEGER,
+            description:
+              "추천하는 시각(0~23 정수). 특정 시각을 고르기 어려우면 생략하세요.",
+          },
+          suggestion: {
+            type: Type.STRING,
+            description: "언제 가면 좋을지 알려주는 1~2문장.",
+          },
+          reason: {
+            type: Type.STRING,
+            description:
+              "그렇게 추천한 이유. 등급과 평균 여유 대수 같은 데이터 근거를 포함해 2~3문장.",
+          },
+        },
+        required: ["suggestion", "reason"],
+      },
+    },
+  });
 
   return parseResult(text);
+}
+
+/**
+ * 멀티턴 대화. 사용자가 첫 추천에 이어 계속 질문할 수 있게 한다.
+ *
+ * Gemini는 서버가 대화를 기억하지 않으므로, 지금까지의 대화 전체를
+ * `contents` 로 매번 함께 보낸다. 혼잡도 표는 대화에 섞지 않고
+ * systemInstruction 에 붙여 대화 내역을 깔끔하게 유지한다.
+ * 추천과 달리 자유 문장이 필요하므로 responseSchema 를 쓰지 않는다.
+ */
+export async function requestChatReply(
+  messages: ChatMessage[],
+  congestion: CongestionCell[],
+  dayOfWeek: DayOfWeek,
+): Promise<string> {
+  const context = [
+    SYSTEM_INSTRUCTION,
+    "",
+    `지금 사용자가 보고 있는 요일은 ${DAY_LABELS[dayOfWeek]}요일입니다.`,
+    `[시간대별 혼잡도] (세탁기 전체 ${TOTAL_MACHINES}대 기준)`,
+    buildCongestionTable(congestion),
+    "",
+    "이어지는 대화에서는 JSON이 아니라 자연스러운 한국어 문장으로 답하세요.",
+    "답변은 3문장 이내로 짧게 유지하고, 데이터에 없는 내용은 지어내지 마세요.",
+  ].join("\n");
+
+  const text = await generateWithRetry(createClient(), {
+    model: GEMINI_MODEL,
+    contents: messages.map((m) => ({
+      role: m.role,
+      parts: [{ text: m.text }],
+    })),
+    config: {
+      systemInstruction: context,
+      temperature: 0.7,
+      // 확장 사고(thinking)를 끈다. 켜 두면 간단한 대화에도 90초 넘게 걸려
+      // 시연 중 응답이 오지 않는 것처럼 보인다.
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  });
+
+  const reply = text?.trim();
+  if (!reply) {
+    throw new Error("Gemini 응답이 비어 있습니다.");
+  }
+  return reply;
 }
 
 /** ```json ... ``` 코드펜스가 붙어 오는 경우를 대비해 벗겨낸다 */
