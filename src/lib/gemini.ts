@@ -192,6 +192,16 @@ function availableModels(): string[] {
 const DEADLINE_MS = 25_000;
 
 /**
+ * SDK는 기본적으로 429·5xx에 최대 5번까지 재시도하며 1→2→4→8초씩 기다린다.
+ * 그러면 막힌 모델 하나에 20초 가까이 쓰게 된다. 우리는 모델을 갈아타는 쪽이
+ * 훨씬 빠르므로 SDK 재시도는 끄고, 응답이 없을 때를 대비해 상한만 둔다.
+ */
+const HTTP_OPTIONS = {
+  timeout: 30_000,
+  retryOptions: { attempts: 1 },
+} as const;
+
+/**
  * 일시적 오류는 같은 모델로 재시도하고, 그래도 안 되면 다음 모델로 넘어간다.
  * 모델 과부하(503)나 할당량 소진(429)으로 시연이 멈추는 것을 막기 위한 장치다.
  * 한 번 막힌 모델은 일정 시간 건너뛰어, 다음 요청이 빨라지게 한다.
@@ -212,7 +222,11 @@ async function generateWithRetry(
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        const response = await ai.models.generateContent(buildParams(model));
+        const params = buildParams(model);
+        const response = await ai.models.generateContent({
+          ...params,
+          config: { ...params.config, httpOptions: HTTP_OPTIONS },
+        });
         cooldownUntil.delete(model); // 되살아났으면 다시 1순위로
         return { text: response.text, model };
       } catch (err) {
