@@ -64,7 +64,7 @@ export function CongestionLegend() {
         ))}
       </div>
       <p className="text-[11px] text-zinc-500">
-        막대 아래 숫자는 그 시간대의 근거 기록 수예요. 기록이 1~2건뿐인 시간대는
+        막대 아래는 그 시간대 추천의 근거가 된 기록 수예요. 기록이 1~2건뿐인 시간대는
         막대를 옅게 표시했어요(참고용).
       </p>
     </div>
@@ -144,7 +144,7 @@ export function CongestionBarChart({
             <span
               className={`text-[9px] leading-3 ${CONFIDENCE_META[confidenceOf(cell)].text}`}
             >
-              {cell.sampleCount > 0 ? cell.sampleCount : "–"}
+              {cell.sampleCount > 0 ? `${cell.sampleCount}건` : "0건"}
             </span>
           </div>
         );
