@@ -2,10 +2,15 @@
 // 과거 기록(LaundryRecord[])을 요일·시간대별로 평균 내어 3단계 등급으로 변환한다.
 // mock / Supabase 어느 저장소든 `LaundryRecord[]` 만 넘기면 동작한다.
 
-import { CONGESTION_THRESHOLDS, TOTAL_MACHINES } from "./config";
+import {
+  CONFIDENCE_THRESHOLDS,
+  CONGESTION_THRESHOLDS,
+  TOTAL_MACHINES,
+} from "./config";
 import type {
   CongestionCell,
   CongestionLevelOrUnknown,
+  ConfidenceLevel,
   DayOfWeek,
   LaundryRecord,
 } from "./types";
@@ -19,6 +24,16 @@ export function classifyLevel(
   if (ratio >= CONGESTION_THRESHOLDS.free) return "free";
   if (ratio >= CONGESTION_THRESHOLDS.normal) return "normal";
   return "busy";
+}
+
+/**
+ * 근거 기록 수 → 신뢰도 등급.
+ * 기록이 적을수록 평균값이 우연에 좌우되므로, 화면에서 구분해 보여 준다.
+ */
+export function classifyConfidence(sampleCount: number): ConfidenceLevel {
+  if (sampleCount <= 0) return "none";
+  if (sampleCount < CONFIDENCE_THRESHOLDS.enough) return "low";
+  return "medium";
 }
 
 /**
@@ -48,6 +63,7 @@ export function buildDayCongestion(
       sampleCount: matched.length,
       averageAvailable,
       level: classifyLevel(averageAvailable),
+      confidence: classifyConfidence(matched.length),
     };
   });
 }

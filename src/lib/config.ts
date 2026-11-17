@@ -40,6 +40,71 @@ export function formatHour(hour: number): string {
 }
 
 /**
+ * 기본값 자동 선택의 기준 시간대.
+ * 서버는 보통 UTC로 돌아가므로, 기숙사가 있는 한국 시각으로 고정한다.
+ */
+export const DEFAULT_TIME_ZONE = "Asia/Seoul";
+
+/** Intl 의 영문 요일 약어 → DayOfWeek */
+const WEEKDAY_INDEX: Record<string, DayOfWeek> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+/**
+ * DEFAULT_TIME_ZONE 기준 현재 요일·시·분.
+ * Intl 로 계산하므로 서버/브라우저 어디서 불러도 같은 값이 나온다.
+ */
+export function getSeoulNow(base: Date = new Date()): {
+  dayOfWeek: DayOfWeek;
+  hour: number;
+  minute: number;
+} {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: DEFAULT_TIME_ZONE,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(base);
+
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  return {
+    dayOfWeek: WEEKDAY_INDEX[pick("weekday")] ?? 0,
+    hour: Number(pick("hour")),
+    minute: Number(pick("minute")),
+  };
+}
+
+/**
+ * 현재 시각에서 가장 가까운 선택 가능 시간대.
+ * 예) 19:40 → 20시, 19:20 → 19시. 운영 시간 밖이면 가장 가까운 끝 시간대.
+ */
+export function nearestHourSlot(hour: number, minute: number): number {
+  const exact = hour + minute / 60;
+  return HOUR_OPTIONS.reduce(
+    (best, option) =>
+      Math.abs(option - exact) < Math.abs(best - exact) ? option : best,
+    HOUR_OPTIONS[0],
+  );
+}
+
+/**
+ * 근거 기록 수에 따른 신뢰도 구분 기준.
+ * enough 건 이상이면 "보통", 1~2건은 "참고용", 0건은 "근거 없음".
+ */
+export const CONFIDENCE_THRESHOLDS = {
+  enough: 3,
+} as const;
+
+/**
  * 사용할 Gemini 모델 목록 (앞에서부터 차례로 시도).
  *
  * 무료 등급은 모델당 하루 20회 제한이 있고, 인기 있는 모델은 과부하(503)로

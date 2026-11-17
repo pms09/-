@@ -14,6 +14,14 @@ export type CongestionLevel = "free" | "normal" | "busy";
 export type CongestionLevelOrUnknown = CongestionLevel | "unknown";
 
 /**
+ * 추천이 얼마나 믿을 만한지 — 근거가 된 기록 수로 판단한다.
+ *  - none   기록 0건 → 근거 없음
+ *  - low    기록 1~2건 → 참고용
+ *  - medium 기록 3건 이상 → 보통
+ */
+export type ConfidenceLevel = "none" | "low" | "medium";
+
+/**
  * 학생이 직접 입력해 공유하는 "현황 기록" 1건.
  * "그 요일·시간대에 비어 있던 세탁기 대수"를 남긴다.
  */
@@ -43,6 +51,8 @@ export interface CongestionCell {
   /** 평균 여유 세탁기 대수. 기록이 없으면 null */
   averageAvailable: number | null;
   level: CongestionLevelOrUnknown;
+  /** sampleCount 로부터 판단한 신뢰도 (화면 표시용) */
+  confidence: ConfidenceLevel;
 }
 
 /** 홈 화면에서 보내는 AI 추천 요청 */

@@ -12,10 +12,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  ConfidenceBadge,
   CongestionBarChart,
   CongestionLegend,
 } from "@/components/congestion-bar-chart";
 import { ChatPanel } from "@/components/chat-panel";
+import { classifyConfidence } from "@/lib/congestion";
 import { DAY_LABELS, formatHour } from "@/lib/config";
 import type {
   CongestionResponse,
@@ -130,6 +132,15 @@ export default function ResultPage() {
   const highlightHour =
     recommendation.status === "ok" ? recommendation.data.recommendedHour : null;
 
+  const cells = congestion.status === "ok" ? congestion.data.cells : [];
+  /** AI가 고른 시간대의 근거 기록 — 추천을 얼마나 믿을지 보여 준다 */
+  const recommendedCell =
+    highlightHour === null
+      ? null
+      : (cells.find((cell) => cell.hour === highlightHour) ?? null);
+  /** 이 요일 전체에 쌓인 기록 수 */
+  const totalSamples = cells.reduce((sum, cell) => sum + cell.sampleCount, 0);
+
   return (
     <section className="space-y-6">
       <header className="space-y-1">
@@ -167,10 +178,24 @@ export default function ResultPage() {
             />
             <CongestionLegend />
             {highlightHour !== null && (
-              <p className="text-xs text-zinc-500">
-                ★ 표시는 AI가 추천한 {formatHour(highlightHour)} 시간대입니다.
+              <p className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                <span>
+                  ★ 표시는 AI가 추천한 {formatHour(highlightHour)} 시간대입니다.
+                </span>
+                {recommendedCell && (
+                  <ConfidenceBadge
+                    sampleCount={recommendedCell.sampleCount}
+                    confidence={
+                      recommendedCell.confidence ??
+                      classifyConfidence(recommendedCell.sampleCount)
+                    }
+                  />
+                )}
               </p>
             )}
+            <p className="text-xs text-zinc-500">
+              이 요일에 쌓인 기록은 모두 {totalSamples}건입니다.
+            </p>
           </>
         )}
       </div>
@@ -206,9 +231,20 @@ export default function ResultPage() {
               dayOfWeek={query?.dayOfWeek ?? (new Date().getDay() as DayOfWeek)}
               initialReply={`${recommendation.data.suggestion}\n\n${recommendation.data.reason}`}
             />
-            <p className="text-xs text-zinc-500">
-              {recommendation.data.model} 응답 · 학생들이 남긴 기록을 바탕으로 한
-              참고용 추천입니다.
+            <p className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+              {recommendedCell && (
+                <ConfidenceBadge
+                  sampleCount={recommendedCell.sampleCount}
+                  confidence={
+                      recommendedCell.confidence ??
+                      classifyConfidence(recommendedCell.sampleCount)
+                    }
+                />
+              )}
+              <span>
+                {recommendation.data.model} 응답 · 학생들이 남긴 기록을 바탕으로 한
+                참고용 추천입니다.
+              </span>
             </p>
           </>
         )}
