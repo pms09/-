@@ -150,19 +150,70 @@ interface GenerateOutcome {
 }
 
 /**
+ * 막힌 모델을 얼마 동안 건너뛸지 (밀리초).
+ * 할당량이 소진된 모델은 한참 뒤에나 풀리고, 과부하는 금방 풀리는 편이다.
+ */
+const COOLDOWN_MS: Record<number, number> = {
+  429: 15 * 60 * 1000, // 할당량 소진
+  503: 60 * 1000, // 과부하
+  500: 60 * 1000, // 일시적 서버 오류
+  404: 60 * 60 * 1000, // 더 이상 제공되지 않는 모델
+};
+
+/**
+ * "이 시각까지는 이 모델을 건너뛴다" 기록.
+ *
+ * 서버리스 인스턴스가 살아 있는 동안만 유지되는 캐시다. 이게 없으면 요청마다
+ * 이미 막힌 1순위 모델부터 다시 왕복하느라 응답이 수십 초씩 늦어진다.
+ */
+const cooldownUntil = new Map<string, number>();
+
+function putOnCooldown(model: string, code: number | null | undefined): void {
+  const ms = COOLDOWN_MS[code ?? -1];
+  if (ms) cooldownUntil.set(model, Date.now() + ms);
+}
+
+/** 지금 쓸 수 있는 모델 목록. 전부 쉬는 중이면 그래도 원래 순서로 시도한다. */
+function availableModels(): string[] {
+  const now = Date.now();
+  const usable = GEMINI_MODELS.filter((model) => {
+    const until = cooldownUntil.get(model);
+    if (until === undefined) return true;
+    if (until <= now) {
+      cooldownUntil.delete(model);
+      return true;
+    }
+    return false;
+  });
+  return usable.length > 0 ? usable : GEMINI_MODELS;
+}
+
+/** 새 모델을 더 시도하지 않고 포기하는 기준 시간 */
+const DEADLINE_MS = 25_000;
+
+/**
  * 일시적 오류는 같은 모델로 재시도하고, 그래도 안 되면 다음 모델로 넘어간다.
  * 모델 과부하(503)나 할당량 소진(429)으로 시연이 멈추는 것을 막기 위한 장치다.
+ * 한 번 막힌 모델은 일정 시간 건너뛰어, 다음 요청이 빨라지게 한다.
  */
 async function generateWithRetry(
   ai: GoogleGenAI,
   buildParams: (model: string) => GenerateParams,
 ): Promise<GenerateOutcome> {
   let lastError: unknown;
+  const startedAt = Date.now();
 
-  for (const model of GEMINI_MODELS) {
+  for (const model of availableModels()) {
+    // 이미 오래 걸렸다면 새 모델을 또 시도하지 않고 오류를 돌려준다.
+    if (lastError && Date.now() - startedAt > DEADLINE_MS) {
+      console.warn(`[gemini] ${DEADLINE_MS}ms 초과 — 남은 모델 시도를 중단합니다.`);
+      break;
+    }
+
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
         const response = await ai.models.generateContent(buildParams(model));
+        cooldownUntil.delete(model); // 되살아났으면 다시 1순위로
         return { text: response.text, model };
       } catch (err) {
         lastError = err;
@@ -172,9 +223,11 @@ async function generateWithRetry(
       }
     }
 
+    const code = extractErrorCode(lastError);
     // 키·요청이 잘못된 경우는 모델을 바꿔도 소용없으므로 즉시 중단한다.
-    if (!FALLBACK_CODES.has(extractErrorCode(lastError) ?? -1)) break;
-    console.warn(`[gemini] ${model} 사용 불가 — 다음 모델로 전환합니다.`);
+    if (!FALLBACK_CODES.has(code ?? -1)) break;
+    putOnCooldown(model, code);
+    console.warn(`[gemini] ${model} 사용 불가(${code ?? "?"}) — 다음 모델로 전환합니다.`);
   }
 
   const detail = lastError instanceof Error ? lastError.message : String(lastError);
